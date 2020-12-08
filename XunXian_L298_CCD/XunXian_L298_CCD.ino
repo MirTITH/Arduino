@@ -11,7 +11,7 @@
 #define PIN_AIN1L 12
 #define ENCODER_AL 2//引发中断
 #define ENCODER_BL 4
-
+//XY
 //红外
 #define IR1 0
 #define IR2 6
