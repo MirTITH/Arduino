@@ -2,4 +2,4 @@
 .vscode/*
 libraries/*
 !/XunXian_L298_CCD/
-!.gitignore
+!/.gitignore

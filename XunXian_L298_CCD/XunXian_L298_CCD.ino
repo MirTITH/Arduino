@@ -32,7 +32,7 @@
 #define GET_SPEED_PERIOD_MS 20
 
 #define RightRatio 1//抵消轮子半径的误差
-#define SpeedP (0.05 / 1000000) //每次调整速度的乘数
+#define SpeedP (0.03 / 1000000) //每次调整速度的乘数
 
 enum MOTOR_SYNC_MODE {SyncOff, SyncOn} motorSyncMode;//左右电动机同步模式
 
@@ -118,10 +118,10 @@ void setup()
 	7		1024		30.637 Hz
  */
 
-	//Serial.begin(115200);
+	Serial.begin(115200);
 }
 
-/* double LimitSpeed(double speed)
+double LimitSpeed(double speed)
 {
 	if (speed > MAX_TotalSpeed)
 	{
@@ -135,7 +135,7 @@ void setup()
 	{
 		return speed;
 	}
-} */
+}
 
 void getEncoderR(void) 
 {
@@ -195,25 +195,33 @@ void getEncoderL(void)
 void TurnLeft(double speed, double turnRatio)
 {
 	motorSyncMode = SyncOn;
-	expSpeedR = Limit(RightRatio * speed * (1 - turnRatio), MAX_TotalSpeed);
-	expSpeedL = Limit(speed * (1 + turnRatio), MAX_TotalSpeed);
+	expSpeedR = LimitSpeed(RightRatio * speed * (1 - turnRatio));
+	expSpeedL = LimitSpeed(speed * (1 + turnRatio));
 
 	if (expSpeedL > 0)
 	{
 		preVoltL = 0.0175 * expSpeedL + 127.54;
 	}
-	else
+	else if (expSpeedL < 0)
 	{
 		preVoltL = 0.0165 * expSpeedL - 129.96;
+	}
+	else
+	{
+		preVoltL = 0;
 	}
 	
 	if (expSpeedR > 0)
 	{
 		preVoltR = 0.0177 * expSpeedR + 131.12;
 	}
-	else
+	else if (expSpeedR < 0)
 	{
 		preVoltR = 0.0184 * expSpeedR - 132.95;
+	}
+	else
+	{
+		preVoltR = 0;
 	}
 }
 
@@ -225,7 +233,7 @@ void MotorSync()
 		//左轮
 		if (expSpeedL > 0)
 		{
-			deltaVoltPL += (expSpeedL - speedL) * SpeedP * dt;
+			deltaVoltPL += (expSpeedL - speedL) * SpeedP  * dt;
 			voltL = preVoltL + deltaVoltPL;
 
 			//限制deltaVolt
@@ -481,23 +489,6 @@ int IRSignNum(int* Type)
 	return Result;
 }
 
-//返回限制在[-MAX_value, MAX_value]的数
-double Limit(double value, double MAX_value)
-{
-	if (value > MAX_value)
-	{
-		return MAX_value;
-	}
-	else if (value < -MAX_value)
-	{
-		return -MAX_value;
-	}
-	else
-	{
-		return value;
-	}
-}
-
 void loop()
 {
 	//PrintData();
@@ -524,27 +515,47 @@ void loop()
 
 void MotorControl()
 {
-	static double MAX_speedControl = 1500;
+	static double speedControl = 1500;
 	static double turnP = 1;//转弯比例系数
-	static double turnD = 0.05;//转弯微分系数
-	static double atanValue = 2;
-	static unsigned long DDt = 150000;//微分▲t，单位微秒
-	static double MAX_turnRatio = 1.01;//最大转弯系数
-	static double MAX_turnRatioD = 0.5;//最大微分项的值
+	static double turnD = 0.2;//转弯微分系数
+	static double atanValue = 1;
+	static unsigned long DDt = 200000;//微分▲t，单位微秒
 
 	static double turnRatioP = 0;//比例项
 	static double turnRatioD = 0;//微分项
 	static double turnRatio = 0;//总转弯系数
-	static double lastDAvg = 5;//上一个▲t的平均值
+	static double lastDAvg = 0;//上一个▲t的平均值
 	static double DAvg = 0;//当前▲t的平均值
-	static double speedControl = MAX_speedControl;//控制的速度
 	static unsigned long sumDt = 0;
+
+	static double lastIRAvgVal = 5;//上一次的IR值
+	static double holdback = 0;//类似于积分项，如果有持续偏差，增强转弯
 	
 	if (IRSignNum(0) != 0)
 	{
 		//SaveIR(LastIR);
 		//比例项计算
 		turnRatioP = (double)turnP * atan(atanValue * (IRAvgVal(0) - 5) / 4) / atan(atanValue);
+
+		//偏差持续变大时输出额外转向值
+		if( (fabs(lastIRAvgVal - 5) - fabs(IRAvgVal(0) - 5)) >0 )
+		{
+			holdback += 1 * dt;
+			if (holdback > 5000)
+			{
+				holdback = 5000;   //持续最大0.5秒达到最大holdback
+			}
+		}   
+		else
+		{
+			holdback = 0;
+		}
+
+		//turnRatio = (1 + (0.5 * holdback / 5000)) * turnRatio	;			//在这里调holdback的参数
+
+
+
+		lastIRAvgVal = IRAvgVal(0);
 
 		//微分项计算
 		sumDt += dt;
@@ -559,68 +570,46 @@ void MotorControl()
 			sumDt = 0;
 			DAvg = 0;
 		}
-		turnRatioD = Limit(turnRatioD, MAX_turnRatioD);
+		
 		turnRatio = turnRatioD + turnRatioP;
-		turnRatio = Limit(turnRatio, MAX_turnRatio);
+
+		Serial.print("tP ");
+		Serial.print(turnRatioP);
+		Serial.print(",tD ");
+		Serial.print(turnRatioD);
+		Serial.print(",Ratio ");
+		Serial.println(turnRatio);
 
 		if (IRSignNum(0) > 3)
 		{
 			if (turnRatioP < 0)
 			{
-				turnRatio = -1.1;
+				turnRatio = -1;
 			}
 			else
 			{
-				turnRatio = 1.1;
+				turnRatio = 1;
 			}
-			speedControl = 1000;
+			speedControl = 800;
 		}
 	}
+
+	turnRatio = Limit(turnRatio,-1,1)	;	
 	
 	TurnLeft((double)speedControl * (1 - 0.4 * fabs(turnRatio)), turnRatio);
-
-	if (speedControl < MAX_speedControl)
+	if (speedControl < speedControl)
 	{
 		speedControl += (double)dt / 3000;
 	}
 
-/* 	static long counter = 0;
-	static int speed = 0;
-	if (fabs(expSpeedR - speedR) <= 50)
-	{
-		counter += dt;
-		if (counter > 1500000)
-		{
-			speed -= 25;
-			counter = 0;
-			PrintData();
-		}
-	}
-	else
-	{
-		counter -= dt;
-	}
-	TurnLeft(speed, -1); */
-/* 	static unsigned long lT1 = 0;
-	if (micros() - lT1 > 20000000)
-	{
-		lT1 = micros();
-	}
-	else if (micros() - lT1 > 16000000)
-	{
-		TurnLeft(-1000, 0);
-	}
-	else if (micros() - lT1 > 12000000)
-	{
-		TurnLeft(0, 0);
-	}
-	else if (micros() - lT1 > 8000000)
-	{
-		TurnLeft(1000, 0);
-	}
-	else if (micros() - lT1 > 4000000)
-	{
-		TurnLeft(500, 0);
-	}
-	 */
+
+}
+
+double Limit(double a,double lim1,double lim2)
+{
+	if(a > lim2)
+		return lim2;
+	if(a < lim1)
+		return lim1;
+	return a;
 }
