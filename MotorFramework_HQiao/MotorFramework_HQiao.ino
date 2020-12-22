@@ -14,7 +14,8 @@
 
 #define GET_SPEED_PERIOD_MS 20//获取速度周期（单位毫秒）
 
-#define SpeedP (0.5 / 1000000) //每次调整速度的乘数
+double SpeedP = 0.2; //电机调速比例项
+double SpeedD = 0.03;//电机调速微分项
 
 enum MOTOR_SYNC_MODE {SyncOff, SyncOn} motorSyncMode;//左右电动机同步模式
 
@@ -23,7 +24,6 @@ volatile long encoderValL = 0;
 
 volatile long lastEncoderValR = 0;
 volatile long lastEncoderValL = 0;
-
 
 int speedR = 0;//实际右轮速度
 int speedL = 0;//实际左轮速度
@@ -181,57 +181,38 @@ void TurnLeft(double speed, double turnRatio)
 
 void MotorSync()
 {
+	static double speedLErr = 0;
+	static double last_speedLErr = 0;
+	static double speedRErr = 0;
+	static double last_speedRErr = 0;
 	switch (motorSyncMode)
 	{
 	case SyncOn:
 		//左轮
-/* 		if (expSpeedL > 0)
-		{ */
-			deltaVoltPL += (expSpeedL - speedL) * SpeedP * dt;
-			voltL = preVoltL + deltaVoltPL;
+		last_speedLErr = speedLErr;
+		speedLErr = expSpeedL - speedL;
 
-			//限制deltaVolt
-			if (deltaVoltPL > MAX_deltaVoltL){
-			deltaVoltPL = MAX_deltaVoltL;
-			}else if (deltaVoltPL < -MAX_deltaVoltL){
-			deltaVoltPL = -MAX_deltaVoltL;}
-/* 		}
-		else
-		{
-			deltaVoltNL += (expSpeedL - speedL) * SpeedP  * dt;
-			voltL = preVoltL + deltaVoltNL;
+		deltaVoltPL += speedLErr * SpeedP * dt / 1000000 + (speedLErr - last_speedLErr) * SpeedD;
+		voltL = preVoltL + deltaVoltPL;
 
-			//限制deltaVolt
-			if (deltaVoltNL > MAX_deltaVoltL){
-			deltaVoltNL = MAX_deltaVoltL;
-			}else if (deltaVoltNL < -MAX_deltaVoltL){
-			deltaVoltNL = -MAX_deltaVoltL;}
-		} */
-		
+		//限制deltaVolt
+		if (deltaVoltPL > MAX_deltaVoltL){
+		deltaVoltPL = MAX_deltaVoltL;
+		}else if (deltaVoltPL < -MAX_deltaVoltL){
+		deltaVoltPL = -MAX_deltaVoltL;}
+
 		//右轮
-/* 		if (expSpeedR > 0)
-		{ */
-			deltaVoltPR += (expSpeedR - speedR) * SpeedP  * dt;
-			voltR = preVoltR + deltaVoltPR;
+		last_speedRErr = speedRErr;
+		speedRErr = expSpeedR - speedR;
+		deltaVoltPR += speedRErr * SpeedP * dt / 1000000 + (speedRErr - last_speedRErr) * SpeedD;
+		voltR = preVoltR + deltaVoltPR;
 
-			//限制deltaVolt
-			if (deltaVoltPR > MAX_deltaVoltR){
-			deltaVoltPR = MAX_deltaVoltR;
-			}else if (deltaVoltPR < -MAX_deltaVoltR){
-			deltaVoltPR = -MAX_deltaVoltR;}
-/* 		}
-		else
-		{
-			deltaVoltNR += (expSpeedR - speedR) * SpeedP  * dt;
-			voltR = preVoltR + deltaVoltNR;
+		//限制deltaVolt
+		if (deltaVoltPR > MAX_deltaVoltR){
+		deltaVoltPR = MAX_deltaVoltR;
+		}else if (deltaVoltPR < -MAX_deltaVoltR){
+		deltaVoltPR = -MAX_deltaVoltR;}
 
-			//限制deltaVolt
-			if (deltaVoltNR > MAX_deltaVoltR){
-			deltaVoltNR = MAX_deltaVoltR;
-			}else if (deltaVoltNR < -MAX_deltaVoltR){
-			deltaVoltNR = -MAX_deltaVoltR;}
-		}
- */
 		//限制volt
 		if (voltL > MAX_Motor_Vol){
 			voltL = MAX_Motor_Vol;
