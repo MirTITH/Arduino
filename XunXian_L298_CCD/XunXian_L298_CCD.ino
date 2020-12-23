@@ -498,11 +498,6 @@ double Limit(double value, double MAX_value)
 	}
 }
 
-void SpinLeft()
-{
-	
-}
-
 void loop()
 {
 	//PrintData();
@@ -532,7 +527,7 @@ void MotorControl()
 	static double MAX_speedControl = 1500;
 	static double turnP = 1;//转弯比例系数
 	static double turnD = 0.05;//转弯微分系数
-	static double atanValue = 2;
+	static double atanValue = 1.5;
 	static unsigned long DDt = 150000;//微分▲t，单位微秒
 	static double MAX_turnRatio = 1.01;//最大转弯系数
 	static double MAX_turnRatioD = 0.5;//最大微分项的值

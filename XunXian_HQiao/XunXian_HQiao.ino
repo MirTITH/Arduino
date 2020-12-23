@@ -252,14 +252,15 @@ void MotorSync()
 
 void PrintData()
 {
-	Serial.print("\nSL ");
-	Serial.print(speedL / 10);
-	Serial.print(",SR ");
-	Serial.print(speedR / 10);
-	Serial.print(",ExpL ");
-	Serial.print(expSpeedL / 10);
-	Serial.print(",ExpR ");
-	Serial.print(expSpeedR / 10);
+	Serial.print('\n');
+	// Serial.print("SL ");
+	// Serial.print(speedL / 10);
+	// Serial.print(",SR ");
+	// Serial.print(speedR / 10);
+	// Serial.print(",ExpL ");
+	// Serial.print(expSpeedL / 10);
+	// Serial.print(",ExpR ");
+	// Serial.print(expSpeedR / 10);
 	// Serial.print(",VoltL ");
 	// Serial.print(voltL);
 	// Serial.print(",VoltR ");
@@ -276,15 +277,15 @@ void PrintData()
 	
 	// Serial.print(" dt= ");
 	// Serial.print(dt / 100);
-	// Serial.print(digitalRead(IR1));
-	// Serial.print(digitalRead(IR2));
-	// Serial.print(digitalRead(IR3));
-	// Serial.print(digitalRead(IR4));
-	// Serial.print(digitalRead(IR5));
-	// Serial.print(digitalRead(IR6));
-	// Serial.print(digitalRead(IR7));
-	// Serial.print(digitalRead(IR8));
-	// Serial.print(digitalRead(IR9));
+	Serial.print(digitalRead(IR1));
+	Serial.print(digitalRead(IR2));
+	Serial.print(digitalRead(IR3));
+	Serial.print(digitalRead(IR4));
+	Serial.print(digitalRead(IR5));
+	Serial.print(digitalRead(IR6));
+	Serial.print(digitalRead(IR7));
+	Serial.print(digitalRead(IR8));
+	Serial.print(digitalRead(IR9));
 	// Serial.print('\n');
 	
 }
@@ -377,12 +378,17 @@ int IRSignNum(int* Type)
 	return Result;
 }
 
-void SpinLeft
+//向左转
+void SpinLeft(double TurnSpeed)
+{
+	expSpeedL = TurnSpeed;
+	expSpeedR = -TurnSpeed;
+}
 
 long SkipTime = 0;//跳过执行MotorControl()的时间（微秒）
 void loop ()
 {
-	PrintData();
+	//PrintData();
 	dt = micros() - lastT;
 	lastT = micros();
 
@@ -432,20 +438,42 @@ void MotorControl()
 		turnRatio = turnRatioP;
 		turnRatio = Limit(turnRatio, MAX_turnRatio);
 
-		if (IRSignNum(0) > 3)
+		if (IRSignNum(0) >= 3)
 		{
-			if (turnRatioP < 0)
+			PrintData();
+			if (digitalRead(IRPort[0]) == 1)
 			{
-				turnRatio = -1.2;
+				turnRatio = -1.5;
+			}
+			else if (digitalRead(IRPort[8]) == 1)
+			{
+				turnRatio = 1.5;
+			}
+			else if (digitalRead(IRPort[1]) == 1)
+			{
+				turnRatio = -1.5;
+			}
+			else if (digitalRead(IRPort[7]) == 1)
+			{
+				turnRatio = 1.5;
+			}
+			else if (digitalRead(IRPort[2]) == 1)
+			{
+				turnRatio = -1.5;
+			}
+			else if (digitalRead(IRPort[6]) == 1)
+			{
+				turnRatio = 1.5;
 			}
 			else
 			{
-				turnRatio = 1.2;
+				turnRatio = 1.5;
 			}
-			speedControl = 1400;
-			TurnLeft((double)speedControl / (1 + fabs(turnRatio)), turnRatio);
-			SkipTime = 200000;
-
+			
+			
+			//speedControl = 1400;
+			SkipTime = 500000;
+			//return;
 		}
 	}
 	
