@@ -24,11 +24,12 @@
 #define IR8 A4
 #define IR9 A3
 
+int MotorOn = 1;
 int LastIR[9] = {0};
 int IRPort[9] = {IR1, IR2, IR3, IR4, IR5, IR6, IR7, IR8, IR9};
 
-double SpeedP = 0.4; //电机调速比例项
-double SpeedD = 0.04;//电机调速微分项
+double SpeedP = 0.6; //电机调速比例项
+double SpeedD = 0.05;//电机调速微分项
 
 enum MOTOR_SYNC_MODE {SyncOff, SyncOn} motorSyncMode;//左右电动机同步模式
 
@@ -411,10 +412,76 @@ void SpinLeft(double TurnSpeed)
 	expSpeedR = -TurnSpeed;
 }
 
+void ReadFromSerial()
+{
+	if (Serial.available() <= 0)
+	{
+		return;
+	}
+	// if (Serial.read() == '\n')
+	// {
+	// 	MotorOn = 0;
+	// }
+
+	// if (Serial.read() == 'g')
+	// {
+	// 	MotorOn = 1;
+	// }
+	// String text = "";
+	char cRead = 0;
+
+	while (Serial.available() > 0)
+	{
+		
+		cRead = Serial.read();
+		Serial.println(cRead);
+		switch (cRead)
+		{
+		case 'g':
+			MotorOn = 1;
+			while (Serial.available() > 0)
+			{
+				Serial.read();
+			}
+			break;
+		
+		default:
+		MotorOn = 0;
+			break;
+		}
+	}
+	
+	// char text[21] = {0};
+
+	// for (int i = 0; i++;i < 20)
+	// {
+	// 	text[i] = Serial.read();
+	// 	delay(2);
+	// }
+	// while (Serial.available() > 0)
+	// {
+	// 	Serial.read();
+	// }
+
+	// Serial.print("Got");
+	// Serial.print(text);
+	// if (text == String("s"))
+	// {
+	// 	MotorOn = 0;
+	// }
+
+	// if (text == String("g"))
+	// {
+	// 	MotorOn = 1;
+	// }
+
+}
+
 long SkipTime = 0;//跳过执行MotorControl()的时间（微秒）
 void loop ()
 {
 	//PrintData();
+	static long serialReadTime = 0;
 	dt = micros() - lastT;
 	lastT = micros();
 
@@ -432,6 +499,18 @@ void loop ()
 		encoderValL += 2000000000;
 		lastEncoderValL += 2000000000;
 	}  */
+
+	if (serialReadTime < 100000)
+	{
+		serialReadTime += dt;
+	}
+	else
+	{
+		serialReadTime = 0;
+		ReadFromSerial();
+	}
+	
+
 	if (SkipTime <= 0)
 	{
 		MotorControl();
@@ -440,15 +519,20 @@ void loop ()
 	{
 		SkipTime -= dt;
 	}
+	if (MotorOn == 0)
+	{
+		expSpeedL = 0;
+		expSpeedR = 0;
+	}
 	
 	MotorSync();
 }
 
 void MotorControl()
 {
-	static double MAX_speedControl = 2000;
+	static double MAX_speedControl = 3200;
 	static double turnP = 1;//转弯比例系数
-	static double atanValue = 2;
+	static double atanValue = 1.2;
 	static double MAX_turnRatio = 1.00;//最大转弯系数
 
 	static double turnRatioP = 0;//比例项
@@ -468,39 +552,45 @@ void MotorControl()
 
 		if (IRSignNum(LastIR) >= 3)
 		{
-			PrintData();
+			//PrintData();
 			if (digitalRead(IRPort[0]) == 1)
 			{
-				turnRatio = -1.5;
+				speedControl = 3000;
+				turnRatio = -3;
 			}
 			else if (digitalRead(IRPort[8]) == 1)
 			{
-				turnRatio = 1.5;
+				speedControl = 3000;
+				turnRatio = 3;
 			}
 			else if (digitalRead(IRPort[1]) == 1)
 			{
-				turnRatio = -1.5;
+				speedControl = 3000;
+				turnRatio = -3;
 			}
 			else if (digitalRead(IRPort[7]) == 1)
 			{
-				turnRatio = 1.5;
+				speedControl = 3000;
+				turnRatio = 3;
 			}
 			else if (digitalRead(IRPort[2]) == 1)
 			{
-				turnRatio = -1.5;
+				speedControl = 3000;
+				turnRatio = -3;
 			}
 			else if (digitalRead(IRPort[6]) == 1)
 			{
-				turnRatio = 1.5;
+				speedControl = 3000;
+				turnRatio = 3;
 			}
 			else
 			{
-				SkipTime -= 500000;
+				SkipTime -= 150000;
 			}
 			
 			
 			//speedControl = 1400;
-			SkipTime += 500000;
+			SkipTime += 150000;
 			//return;
 		}
 	}
