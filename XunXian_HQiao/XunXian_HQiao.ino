@@ -287,7 +287,7 @@ void PrintData()
 	Serial.print(digitalRead(IR7));
 	Serial.print(digitalRead(IR8));
 	Serial.print(digitalRead(IR9));
-	Serial.print('  ');
+	Serial.print(' ');
 	Serial.print(LastIR[0]);
 	Serial.print(LastIR[1]);
 	Serial.print(LastIR[2]);
