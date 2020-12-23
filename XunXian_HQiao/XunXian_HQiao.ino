@@ -24,6 +24,7 @@
 #define IR8 A4
 #define IR9 A3
 
+int LastIR[9] = {0};
 int IRPort[9] = {IR1, IR2, IR3, IR4, IR5, IR6, IR7, IR8, IR9};
 
 double SpeedP = 0.4; //电机调速比例项
@@ -286,6 +287,18 @@ void PrintData()
 	Serial.print(digitalRead(IR7));
 	Serial.print(digitalRead(IR8));
 	Serial.print(digitalRead(IR9));
+	Serial.print('  ');
+	Serial.print(LastIR[0]);
+	Serial.print(LastIR[1]);
+	Serial.print(LastIR[2]);
+	Serial.print(LastIR[3]);
+	Serial.print(LastIR[4]);
+	Serial.print(LastIR[5]);
+	Serial.print(LastIR[6]);
+	Serial.print(LastIR[7]);
+	Serial.print(LastIR[8]);
+
+
 	// Serial.print('\n');
 	
 }
@@ -378,6 +391,19 @@ int IRSignNum(int* Type)
 	return Result;
 }
 
+void SaveIR(int * IRGroup)
+{
+	IRGroup[0] = digitalRead(IR1);
+	IRGroup[1] = digitalRead(IR2);
+	IRGroup[2] = digitalRead(IR3);
+	IRGroup[3] = digitalRead(IR4);
+	IRGroup[4] = digitalRead(IR5);
+	IRGroup[5] = digitalRead(IR6);
+	IRGroup[6] = digitalRead(IR7);
+	IRGroup[7] = digitalRead(IR8);
+	IRGroup[8] = digitalRead(IR9);
+}
+
 //向左转
 void SpinLeft(double TurnSpeed)
 {
@@ -428,17 +454,19 @@ void MotorControl()
 	static double turnRatioP = 0;//比例项
 	static double turnRatio = 0;//总转弯系数
 	static double speedControl = MAX_speedControl;//控制的速度
+
+	SaveIR(LastIR);
 	
-	if (IRSignNum(0) != 0)
+	if (IRSignNum(LastIR) != 0)
 	{
 		//SaveIR(LastIR);
 		//比例项计算
-		turnRatioP = (double)turnP * atan(atanValue * (IRAvgVal(0) - 5) / 4) / atan(atanValue);
+		turnRatioP = (double)turnP * atan(atanValue * (IRAvgVal(LastIR) - 5) / 4) / atan(atanValue);
 
 		turnRatio = turnRatioP;
 		turnRatio = Limit(turnRatio, MAX_turnRatio);
 
-		if (IRSignNum(0) >= 3)
+		if (IRSignNum(LastIR) >= 3)
 		{
 			PrintData();
 			if (digitalRead(IRPort[0]) == 1)
@@ -467,12 +495,12 @@ void MotorControl()
 			}
 			else
 			{
-				turnRatio = 1.5;
+				SkipTime -= 500000;
 			}
 			
 			
 			//speedControl = 1400;
-			SkipTime = 500000;
+			SkipTime += 500000;
 			//return;
 		}
 	}
