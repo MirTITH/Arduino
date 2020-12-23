@@ -4,3 +4,4 @@ libraries/*
 !/XunXian_L298_CCD/
 !.gitignore
 !/MotorFramework_HQiao/
+!/XunXian_HQiao/
