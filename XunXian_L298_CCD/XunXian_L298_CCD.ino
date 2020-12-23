@@ -498,6 +498,11 @@ double Limit(double value, double MAX_value)
 	}
 }
 
+void SpinLeft()
+{
+	
+}
+
 void loop()
 {
 	//PrintData();

@@ -14,8 +14,20 @@
 
 #define GET_SPEED_PERIOD_MS 20//获取速度周期（单位毫秒）
 
-double SpeedP = 0.2; //电机调速比例项
-double SpeedD = 0.03;//电机调速微分项
+#define IR1 8
+#define IR2 6
+#define IR3 7
+#define IR4 A0
+#define IR5 A1
+#define IR6 A2
+#define IR7 A5
+#define IR8 A4
+#define IR9 A3
+
+int IRPort[9] = {IR1, IR2, IR3, IR4, IR5, IR6, IR7, IR8, IR9};
+
+double SpeedP = 0.4; //电机调速比例项
+double SpeedD = 0.04;//电机调速微分项
 
 enum MOTOR_SYNC_MODE {SyncOff, SyncOn} motorSyncMode;//左右电动机同步模式
 
@@ -221,16 +233,16 @@ void MotorSync()
 
 		if (voltR > MAX_Motor_Vol){
 			voltR = MAX_Motor_Vol;
-		}else if (voltR < -MAX_Motor_Vol){
-			voltR = -MAX_Motor_Vol;}
+		}else if (voltR < 0){
+			voltR = 0;}
 
-		analogWrite(PIN_PWMR, voltR / 2 + 127);
-		analogWrite(PIN_PWML, voltL / 2 + 127);
+		analogWrite(PIN_PWMR, voltR);
+		analogWrite(PIN_PWML, voltL);
 
 		break;
 	case SyncOff:
-		analogWrite(PIN_PWMR, voltR / 2 + 127);
-		analogWrite(PIN_PWML, voltL / 2 + 127);
+		analogWrite(PIN_PWMR, voltR);
+		analogWrite(PIN_PWML, voltL);
 
 		break;
 	default:
@@ -248,10 +260,10 @@ void PrintData()
 	Serial.print(expSpeedL / 10);
 	Serial.print(",ExpR ");
 	Serial.print(expSpeedR / 10);
-	Serial.print(",VoltL ");
-	Serial.print(voltL);
-	Serial.print(",VoltR ");
-	Serial.print(voltR);
+	// Serial.print(",VoltL ");
+	// Serial.print(voltL);
+	// Serial.print(",VoltR ");
+	// Serial.print(voltR);
 
 	// Serial.print(",dVPL ");
 	// Serial.print(deltaVoltPL);
@@ -262,8 +274,8 @@ void PrintData()
 	// Serial.print(",dVNR ");
 	// Serial.print(deltaVoltNL);
 	
-	Serial.print(" dt= ");
-	Serial.print(dt / 100);
+	// Serial.print(" dt= ");
+	// Serial.print(dt / 100);
 	// Serial.print(digitalRead(IR1));
 	// Serial.print(digitalRead(IR2));
 	// Serial.print(digitalRead(IR3));
@@ -304,6 +316,70 @@ double Limit(double value, double MAX_value)
 	}
 }
 
+//返回平均IR值，Type值为0时从传感器读入，否则从传入的数组中读入
+double IRAvgVal(int* Type)
+{
+	int total = 0;
+	int weightedNum = 0;
+	if (Type == 0)
+	{
+		total = IRSignNum(0);
+
+		if (total == 0)
+		{
+			return 5;
+		}
+		else
+		{
+			for (int i = 0; i < 9; i++)
+			{
+				weightedNum += (i + 1) * digitalRead(IRPort[i]);
+			}
+			return (double)weightedNum / total;
+		}
+	}
+	else
+	{
+		total = IRSignNum(Type);
+		if (total == 0)
+		{
+			return 5;
+		}
+		else
+		{
+			for (int i = 0; i < 9; i++)
+			{
+				weightedNum += (i + 1) * Type[i];
+			}
+			return (double)weightedNum / total;
+		}
+	}
+}
+
+//返回有信号的IR传感器数，传入0时从传感器读取，否则从数组中读取
+int IRSignNum(int* Type)
+{
+	int Result = 0;
+	if (Type == 0)
+	{
+		for (int i = 0; i < 9; i++)
+		{
+			Result += digitalRead(IRPort[i]);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < 9; i++)
+		{
+			Result += Type[i];
+		}
+	}
+	return Result;
+}
+
+void SpinLeft
+
+long SkipTime = 0;//跳过执行MotorControl()的时间（微秒）
 void loop ()
 {
 	PrintData();
@@ -324,26 +400,59 @@ void loop ()
 		encoderValL += 2000000000;
 		lastEncoderValL += 2000000000;
 	}  */
-	MotorControl();
+	if (SkipTime <= 0)
+	{
+		MotorControl();
+	}
+	else
+	{
+		SkipTime -= dt;
+	}
+	
 	MotorSync();
 }
 
 void MotorControl()
 {
-	static unsigned long time = 0;
-	time += dt;
-	TurnLeft(0,0);
-	if (time > 2000000)
-		TurnLeft(500,0);
-	if (time > 5000000)
-		TurnLeft(1500,0);
-/* 	if (time > 8000000)
-		TurnLeft(500,0);
-	if (time > 11000000)
-		TurnLeft(2000,0);
-	 */
-	if (time > 8000000)
+	static double MAX_speedControl = 2000;
+	static double turnP = 1;//转弯比例系数
+	static double atanValue = 2;
+	static double MAX_turnRatio = 1.00;//最大转弯系数
+
+	static double turnRatioP = 0;//比例项
+	static double turnRatio = 0;//总转弯系数
+	static double speedControl = MAX_speedControl;//控制的速度
+	
+	if (IRSignNum(0) != 0)
 	{
-		time = 0;
+		//SaveIR(LastIR);
+		//比例项计算
+		turnRatioP = (double)turnP * atan(atanValue * (IRAvgVal(0) - 5) / 4) / atan(atanValue);
+
+		turnRatio = turnRatioP;
+		turnRatio = Limit(turnRatio, MAX_turnRatio);
+
+		if (IRSignNum(0) > 3)
+		{
+			if (turnRatioP < 0)
+			{
+				turnRatio = -1.2;
+			}
+			else
+			{
+				turnRatio = 1.2;
+			}
+			speedControl = 1400;
+			TurnLeft((double)speedControl / (1 + fabs(turnRatio)), turnRatio);
+			SkipTime = 200000;
+
+		}
+	}
+	
+	TurnLeft((double)speedControl / (1 + fabs(turnRatio)), turnRatio);
+
+	if (speedControl < MAX_speedControl)
+	{
+		speedControl += (double)dt / 3000;
 	}
 }
