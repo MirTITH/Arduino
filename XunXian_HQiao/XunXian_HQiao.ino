@@ -8,7 +8,7 @@
 #define ENCODER_AL 2//引发中断
 #define ENCODER_BL 4
 
-#define MAX_Motor_Vol 254
+#define MAX_Motor_Vol 255
 #define MAX_deltaVoltL 128//最大左轮修正电压
 #define MAX_deltaVoltR 128//最大右轮修正电压
 
@@ -24,12 +24,14 @@
 #define IR8 A4
 #define IR9 A3
 
+enum CONTROL_MODE {Normal, Stop, RunForward, RunBackward, Left, Right} controlMode;
+
 int MotorOn = 1;
 int LastIR[9] = {0};
 int IRPort[9] = {IR1, IR2, IR3, IR4, IR5, IR6, IR7, IR8, IR9};
 
 double SpeedP = 0.6; //电机调速比例项
-double SpeedD = 0.05;//电机调速微分项
+double SpeedD = 0.08;//电机调速微分项
 
 enum MOTOR_SYNC_MODE {SyncOff, SyncOn} motorSyncMode;//左右电动机同步模式
 
@@ -171,8 +173,8 @@ void getEncoderL(void)
 void TurnLeft(double speed, double turnRatio)
 {
 	//motorSyncMode = SyncOn;
-	expSpeedR = speed * (1 - turnRatio);
-	expSpeedL = speed * (1 + turnRatio);
+	expSpeedR = speed * (1 + turnRatio);
+	expSpeedL = speed * (1 - turnRatio);
 
 /* 	if (expSpeedL > 0)
 	{
@@ -255,18 +257,18 @@ void MotorSync()
 void PrintData()
 {
 	Serial.print('\n');
-	// Serial.print("SL ");
-	// Serial.print(speedL / 10);
-	// Serial.print(",SR ");
-	// Serial.print(speedR / 10);
-	// Serial.print(",ExpL ");
-	// Serial.print(expSpeedL / 10);
-	// Serial.print(",ExpR ");
-	// Serial.print(expSpeedR / 10);
-	// Serial.print(",VoltL ");
-	// Serial.print(voltL);
-	// Serial.print(",VoltR ");
-	// Serial.print(voltR);
+	Serial.print(",SL ");
+	Serial.print(speedL / 10);
+	Serial.print(",SR ");
+	Serial.print(speedR / 10);
+	Serial.print(",ExpL ");
+	Serial.print(expSpeedL / 10);
+	Serial.print(",ExpR ");
+	Serial.print(expSpeedR / 10);
+	Serial.print(",VoltL ");
+	Serial.print(voltL);
+	Serial.print(",VoltR ");
+	Serial.print(voltR);
 
 	// Serial.print(",dVPL ");
 	// Serial.print(deltaVoltPL);
@@ -277,27 +279,27 @@ void PrintData()
 	// Serial.print(",dVNR ");
 	// Serial.print(deltaVoltNL);
 	
-	// Serial.print(" dt= ");
-	// Serial.print(dt / 100);
-	Serial.print(digitalRead(IR1));
-	Serial.print(digitalRead(IR2));
-	Serial.print(digitalRead(IR3));
-	Serial.print(digitalRead(IR4));
-	Serial.print(digitalRead(IR5));
-	Serial.print(digitalRead(IR6));
-	Serial.print(digitalRead(IR7));
-	Serial.print(digitalRead(IR8));
-	Serial.print(digitalRead(IR9));
-	Serial.print(' ');
-	Serial.print(LastIR[0]);
-	Serial.print(LastIR[1]);
-	Serial.print(LastIR[2]);
-	Serial.print(LastIR[3]);
-	Serial.print(LastIR[4]);
-	Serial.print(LastIR[5]);
-	Serial.print(LastIR[6]);
-	Serial.print(LastIR[7]);
-	Serial.print(LastIR[8]);
+	// Serial.print(",dt ");
+	// Serial.print(dt / 1000);
+	// Serial.print(digitalRead(IR1));
+	// Serial.print(digitalRead(IR2));
+	// Serial.print(digitalRead(IR3));
+	// Serial.print(digitalRead(IR4));
+	// Serial.print(digitalRead(IR5));
+	// Serial.print(digitalRead(IR6));
+	// Serial.print(digitalRead(IR7));
+	// Serial.print(digitalRead(IR8));
+	// Serial.print(digitalRead(IR9));
+	// Serial.print(' ');
+	// Serial.print(LastIR[0]);
+	// Serial.print(LastIR[1]);
+	// Serial.print(LastIR[2]);
+	// Serial.print(LastIR[3]);
+	// Serial.print(LastIR[4]);
+	// Serial.print(LastIR[5]);
+	// Serial.print(LastIR[6]);
+	// Serial.print(LastIR[7]);
+	// Serial.print(LastIR[8]);
 
 
 	// Serial.print('\n');
@@ -434,20 +436,38 @@ void ReadFromSerial()
 	{
 		
 		cRead = Serial.read();
-		Serial.println(cRead);
+		//Serial.println(cRead);
 		switch (cRead)
 		{
 		case 'g':
+			controlMode = Normal;
 			MotorOn = 1;
-			while (Serial.available() > 0)
-			{
-				Serial.read();
-			}
 			break;
-		
+		case 'w':
+			controlMode = RunForward;
+			MotorOn = 1;
+			break;
+		case 's':
+			controlMode = RunBackward;
+			MotorOn = 1;
+			break;
+		case 'a':
+			controlMode = Left;
+			MotorOn = 1;
+			break;
+		case 'd':
+			controlMode = Right;
+			MotorOn = 1;
+			break;
 		default:
-		MotorOn = 0;
+			MotorOn = 0;
+			controlMode = Stop;
 			break;
+		}
+
+		while (Serial.available() > 0)
+		{
+			Serial.read();
 		}
 	}
 	
@@ -477,11 +497,34 @@ void ReadFromSerial()
 
 }
 
+//奇幂函数
+double OddPow(double x, double a)
+{
+	if (x >= 0)
+	{
+		return pow(x,a);
+	}
+	else
+	{
+		return -pow(-x,a);
+	}
+	
+}
+
 long SkipTime = 0;//跳过执行MotorControl()的时间（微秒）
+
 void loop ()
 {
-	//PrintData();
-	static long serialReadTime = 0;
+	if (millis() % 100 == 0)
+	{
+		ReadFromSerial();
+	}
+
+	if (millis() % 10 == 0 && MotorOn)
+	{
+		PrintData();
+	}
+	
 	dt = micros() - lastT;
 	lastT = micros();
 
@@ -499,40 +542,61 @@ void loop ()
 		encoderValL += 2000000000;
 		lastEncoderValL += 2000000000;
 	}  */
-
-	if (serialReadTime < 100000)
+	switch (controlMode)
 	{
-		serialReadTime += dt;
+	case Normal:
+		if (SkipTime <= 0)
+		{
+			MotorControl();
+		}
+		else
+		{
+			SkipTime -= dt;
+		}
+		break;
+	case RunForward:
+		expSpeedL = 3000;
+		expSpeedR = 3000;
+		break;
+	case RunBackward:
+		expSpeedR = -1000;
+		expSpeedL = -1000;
+		break;
+	case Left:
+		TurnLeft(2000, 0.5);
+		break;
+	case Right:
+		TurnLeft(2000, -0.5);
+		break;
+	case Stop:
+		expSpeedL = 0;
+		expSpeedR = 0;
+		break;
+	default:
+		break;
 	}
-	else
-	{
-		serialReadTime = 0;
-		ReadFromSerial();
-	}
-	
-
-	if (SkipTime <= 0)
+/* 	if (SkipTime <= 0)
 	{
 		MotorControl();
 	}
 	else
 	{
 		SkipTime -= dt;
-	}
+	} 
 	if (MotorOn == 0)
 	{
 		expSpeedL = 0;
 		expSpeedR = 0;
 	}
-	
+*/
 	MotorSync();
 }
 
 void MotorControl()
 {
-	static double MAX_speedControl = 3200;
-	static double turnP = 1;//转弯比例系数
-	static double atanValue = 1.2;
+	static double MAX_speedControl = 4000;
+	static double turnP = 0.7;//转弯比例系数
+	static double powValue = 1.2;
 	static double MAX_turnRatio = 1.00;//最大转弯系数
 
 	static double turnRatioP = 0;//比例项
@@ -545,11 +609,11 @@ void MotorControl()
 	{
 		//SaveIR(LastIR);
 		//比例项计算
-		turnRatioP = (double)turnP * atan(atanValue * (IRAvgVal(LastIR) - 5) / 4) / atan(atanValue);
+		turnRatioP = -(double)turnP * OddPow((IRAvgVal(LastIR) - 5) / 4, powValue);
 
 		turnRatio = turnRatioP;
 		turnRatio = Limit(turnRatio, MAX_turnRatio);
-
+/* 
 		if (IRSignNum(LastIR) >= 3)
 		{
 			//PrintData();
@@ -593,6 +657,7 @@ void MotorControl()
 			SkipTime += 150000;
 			//return;
 		}
+	 */
 	}
 	
 	TurnLeft((double)speedControl / (1 + fabs(turnRatio)), turnRatio);
