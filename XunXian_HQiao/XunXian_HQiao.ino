@@ -30,8 +30,8 @@ int MotorOn = 1;
 int LastIR[9] = {0};
 int IRPort[9] = {IR1, IR2, IR3, IR4, IR5, IR6, IR7, IR8, IR9};
 
-double SpeedP = 0.6; //电机调速比例项
-double SpeedD = 0.08;//电机调速微分项
+double SpeedP = 0.7; //电机调速比例项
+double SpeedD = 0.09;//电机调速微分项
 
 enum MOTOR_SYNC_MODE {SyncOff, SyncOn} motorSyncMode;//左右电动机同步模式
 
@@ -594,9 +594,9 @@ void loop ()
 
 void MotorControl()
 {
-	static double MAX_speedControl = 4000;
-	static double turnP = 0.7;//转弯比例系数
-	static double powValue = 1.2;
+	static double MAX_speedControl = 4250;
+	static double turnP = 0.6;//转弯比例系数
+	static double powValue = 1.1;
 	static double MAX_turnRatio = 1.00;//最大转弯系数
 
 	static double turnRatioP = 0;//比例项
@@ -660,7 +660,7 @@ void MotorControl()
 	 */
 	}
 	
-	TurnLeft((double)speedControl / (1 + fabs(turnRatio)), turnRatio);
+	TurnLeft((double)speedControl / (1 + 0.9 * fabs(turnRatio)), turnRatio);
 
 	if (speedControl < MAX_speedControl)
 	{
