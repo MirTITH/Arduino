@@ -24,7 +24,7 @@
 #define IR8 A4
 #define IR9 A3
 
-enum CONTROL_MODE {Normal, Stop, RunForward, RunBackward, Left, Right} controlMode;
+enum CONTROL_MODE {Normal, Stop, RunForward, RunBackward, Left, Right, Avoid} controlMode;
 
 int MotorOn = 1;
 int LastIR[9] = {0};
@@ -547,12 +547,15 @@ void loop ()
 	case Normal:
 		if (SkipTime <= 0)
 		{
-			MotorControl();
+		MotorControl();
 		}
 		else
 		{
 			SkipTime -= dt;
 		}
+		break;
+	case Avoid:
+		AvoidingLeft();
 		break;
 	case RunForward:
 		expSpeedL = 2000;
@@ -592,6 +595,32 @@ void loop ()
 	MotorSync();
 }
 
+//扭一扭
+
+void AvoidingLeft()
+{
+	static unsigned long nnt=0;//扭扭时间，单位微秒
+	if(nnt < 500000)
+	{
+		TurnLeft(800,0.5);
+	}
+	else if(nnt < 1300000)
+	{
+		TurnLeft(800,-0.5);
+	}
+	else if(nnt < 1500000)
+	{
+		TurnLeft(800,0);
+	}
+	else
+		{
+			nnt = 0;
+			controlMode = Normal;
+		}
+	nnt += dt;
+}
+
+//巡线代码
 void MotorControl()
 {
 	static double MAX_speedControl = 4250;
