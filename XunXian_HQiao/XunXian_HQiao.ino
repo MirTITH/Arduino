@@ -555,18 +555,18 @@ void loop ()
 		}
 		break;
 	case RunForward:
-		expSpeedL = 3000;
-		expSpeedR = 3000;
+		expSpeedL = 2000;
+		expSpeedR = 2000;
 		break;
 	case RunBackward:
 		expSpeedR = -1000;
 		expSpeedL = -1000;
 		break;
 	case Left:
-		TurnLeft(2000, 0.5);
+		TurnLeft(1500, 0.8);
 		break;
 	case Right:
-		TurnLeft(2000, -0.5);
+		TurnLeft(1500, -0.8);
 		break;
 	case Stop:
 		expSpeedL = 0;
